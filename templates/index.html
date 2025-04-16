@@ -1,61 +1,131 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hexagon Tile Game</title>
+    <title>Connect the Blocks</title>
     <style>
         body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
             font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            text-align: center;
         }
-        #board {
+
+        h1 {
+            margin-top: 20px;
+        }
+
+        .board {
             display: grid;
-            grid-template-columns: repeat(10, 60px);
-            grid-template-rows: repeat(10, 52px);
-            gap: 2px;
+            grid-template-columns: repeat(7, 60px);
+            grid-gap: 5px;
+            justify-content: center;
+            margin: 20px auto;
         }
-        .hex {
+
+        .tile {
             width: 60px;
-            height: 52px;
+            height: 60px;
             background-color: lightgray;
-            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-            transition: background-color 0.2s;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+
+        .player1 {
+            background-color: blue;
+        }
+
+        .player2 {
+            background-color: red;
+        }
+
+        .disabled {
+            pointer-events: none;
+        }
+
+        .status {
+            font-size: 20px;
+            margin: 15px;
+        }
+
+        .scoreboard {
+            position: absolute;
+            top: 50px;
+            right: 50px;
+            text-align: left;
+        }
+
+        button {
+            margin: 10px;
         }
     </style>
 </head>
 <body>
+    <h1>Connect the Blocks</h1>
 
-<div id="board">
-    <!-- Hexagonal tiles will be added here on clicks -->
-</div>
+    <div class="scoreboard">
+        <h3>Scoreboard</h3>
+        <p>Player 1 (Blue): <span id="score1">{{ wins['1'] }}</span></p>
+        <p>Player 2 (Red): <span id="score2">{{ wins['2'] }}</span></p>
+        <p>Draws: <span id="draws">{{ wins['draws'] }}</span></p>
+        <form action="/reset_counter" method="get">
+            <button type="submit">Reset Scoreboard</button>
+        </form>
+    </div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function() {
-        // Create an empty board of hex tiles
-        for (let i = 0; i < 100; i++) {
-            const hexTile = $('<div class="hex"></div>');
-            hexTile.data("clicked", false);  // Track if a tile has been clicked
-            $('#board').append(hexTile);
-        }
+    <div class="status" id="status">
+        {% if winner == 1 %}
+            Player 1 wins!
+        {% elif winner == 2 %}
+            Player 2 wins!
+        {% elif winner == -1 %}
+            Draw!
+        {% else %}
+            Player {{ turn }}'s turn
+        {% endif %}
+    </div>
 
-        // Add color to hex tiles on click
-        $('#board').on('click', '.hex', function() {
-            if (!$(this).data("clicked")) {  // Only allow one click per tile
-                $.getJSON('/add_tile', function(data) {
-                    $(this).css('background-color', data.color);
-                    $(this).data("clicked", true);  // Mark as clicked
-                }.bind(this));
+    <div class="board" id="gameBoard">
+        {% for row in range(6) %}
+            {% for col in range(7) %}
+                {% set cell = board[row][col] %}
+                <div class="tile {% if cell == 1 %}player1{% elif cell == 2 %}player2{% endif %}" 
+                     data-row="{{ row }}" data-col="{{ col }}"></div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    {% if winner %}
+        <form action="/reset" method="get">
+            <button type="submit">Play Again</button>
+        </form>
+    {% endif %}
+
+    <script>
+        const board = document.getElementById('gameBoard');
+        const status = document.getElementById('status');
+        const tiles = document.querySelectorAll('.tile');
+
+        board.addEventListener('click', function (e) {
+            const tile = e.target;
+            if (!tile.classList.contains('tile') || tile.classList.contains('player1') || tile.classList.contains('player2')) {
+                return;
             }
-        });
-    });
-</script>
 
+            const row = parseInt(tile.getAttribute('data-row'));
+            const col = parseInt(tile.getAttribute('data-col'));
+
+            fetch('/click', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ row, col })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        });
+    </script>
 </body>
 </html>
